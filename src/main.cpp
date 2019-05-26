@@ -33,8 +33,9 @@ double ref_val = 0;//mile/h
 const int num_lane = 3;
 
 const double cycle_s  = 0.02;
-const int path_size   = 100;
-double path_time      = cycle_s * path_size;
+double path_time      = 1;// unit is sec. When special condition like lane change this value wil be cahneged.
+const double path_time_lane_change = 2;
+const double path_time_normal = 1;
 
 double mile_per_h_to_meter_per_sec(double mph)
 {
@@ -144,6 +145,8 @@ int main() {
 
           int target_lane_old = target_lane;
 
+          path_time = path_time_normal;
+
           /**
            * TODO: define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
@@ -229,6 +232,7 @@ int main() {
                 }else{
                   target_lane = goal_change_lane;
                   flag_lane_change = true;
+                  path_time = path_time_lane_change;
                 }
               }
              }           
@@ -293,9 +297,9 @@ int main() {
           //vector<double> next_wp_2 = getXY(car_s + mile_per_h_to_meter_per_sec(ref_val) * path_time *3/3, 2+(4 * target_lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
           double d_begin  = 2+(4 * target_lane_old);
           double d_target = 2+(4 * target_lane);
-          vector<double> next_wp_0 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 1/3 * 2, d_begin + (d_target - d_begin) * 1/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp_1 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 2/3 * 2, d_begin + (d_target - d_begin) * 2/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp_2 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 3/3 * 2, d_begin + (d_target - d_begin) * 3/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp_0 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 1/3, d_begin + (d_target - d_begin) * 1/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp_1 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 2/3, d_begin + (d_target - d_begin) * 2/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp_2 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 3/3, d_begin + (d_target - d_begin) * 3/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
           pts_x.insert(pts_x.end(), {next_wp_0[0],next_wp_1[0],next_wp_2[0]});
           pts_y.insert(pts_y.end(), {next_wp_0[1],next_wp_1[1],next_wp_2[1]});
@@ -330,7 +334,7 @@ int main() {
 
           double x_add_on = 0;
 
-          for (int i=0; i <= path_size - prev_size; i++)
+          for (int i=0; i <= path_time / cycle_s - prev_size; i++)
           {
             // Calc the number of cycles to reach the target_x with reference_speed.
             double N = target_dist/(0.02*mile_per_h_to_meter_per_sec(ref_val)); 
