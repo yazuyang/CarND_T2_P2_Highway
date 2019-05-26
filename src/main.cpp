@@ -27,6 +27,9 @@ const double max_speed      = 49.5;//mile/h max is 50
 const double max_acc_abs    = 8;//m//s^2 max is 10
 const double max_jerk_abs   = 5;//m/s^3max is 10
 
+const double safe_margin_slow_down   = 30;//m
+const double safe_margin_change_lane = 20;//m
+
 double ref_val = 0;//mile/h
 
 // the number of lanes
@@ -171,9 +174,9 @@ int main() {
           // Check the other car
           //-------------------------- 
           bool forward_attention = false;
-          vector<bool> lane_change_availability(num_lane, false);
-          const double safe_margin_slow_down   = 40;//m
-          const double safe_margin_change_lane = 10;//m
+          vector<bool> lane_change_availability(num_lane, true);
+          vector<double> ahead_car_speed(num_lane, std::numeric_limits<double>::max());
+          vector<double> ahead_car_dist(num_lane, std::numeric_limits<double>::max()); 
           for(auto another_car: sensor_fusion)
           {
             int id    = another_car[0];
@@ -184,6 +187,7 @@ int main() {
             double s  = another_car[5];//m
             double d  = another_car[6];//m
             double v  = sqrt(vx*vx + vy*vy);//m/s
+            double v_mileph = meter_per_sec_to_mile_per_h(v);
 
             double s_sensored_car_predict = s + ((double)prev_size*0.02*v);
 
@@ -194,14 +198,25 @@ int main() {
             int idx_lane_sensored_car = std::floor(d / 4);
 
             // Get states of lane occupancy around ego-car
-            if (((end_path_s - safe_margin_change_lane) < s_sensored_car_predict) && ((s_sensored_car_predict < (end_path_s + safe_margin_change_lane))))
+            if (((end_path_s - safe_margin_change_lane) < s_sensored_car_predict) && ((s_sensored_car_predict < (end_path_s + safe_margin_change_lane))))// TODO s range
             {
-              lane_change_availability[idx_lane_sensored_car] = true;
+              lane_change_availability[idx_lane_sensored_car] = false;
+            }
+
+            // Get ahead car information 
+            if(((end_path_s) < s_sensored_car_predict) && ((s_sensored_car_predict < (end_path_s + safe_margin_slow_down))))// TODO s range
+            {
+              double dist = distance(car_x, car_y, x, y);
+              if(dist < ahead_car_dist[idx_lane_sensored_car])
+              {
+                ahead_car_dist[idx_lane_sensored_car]  = dist;
+                ahead_car_speed[idx_lane_sensored_car] = v_mileph;
+              }
             }
 
             // TODO: range of s is limited.
             // Get forward attention
-            if (end_path_s < s_sensored_car_predict && (s_sensored_car_predict < end_path_s + safe_margin_slow_down))
+            if (end_path_s < s_sensored_car_predict && (s_sensored_car_predict < end_path_s + safe_margin_slow_down))// TODO s range
             {  
               if (idx_lane_sensored_car == target_lane)
               {
@@ -210,40 +225,55 @@ int main() {
             }
           }
 
-          std::cout << "lane occup: ";
+
+          std::cout << "ahead_car_speed: ";
+          std::for_each(ahead_car_speed.begin(), ahead_car_speed.end(), [](double speed){
+            if(speed > 999){speed = 99;}
+            std::cout << int(speed) << " ";
+          });
+          std::cout << std::endl;
+          std::cout << "lane_change_availability: ";
           std::for_each(lane_change_availability.begin(), lane_change_availability.end(), [](bool flag){std::cout << flag;});
           std::cout << std::endl;
+
+
           bool flag_lane_change = false;
           // control speed and lane chanege
           if(forward_attention)
-           {
+          {
              std::cout << "close ahead!!!" << std::endl;
               
-             // Try changeing lane to left lane
-             vector<int> left_right = {target_lane -1 , target_lane + 1};
-             for(int goal_change_lane : left_right)
-             {
-               // if there exist left or right from current lane?
-              if(0 <= goal_change_lane && goal_change_lane <= num_lane-1)
-              {
-                if (lane_change_availability[goal_change_lane])
-                {
-                  // NOTHING TO DO
-                }else{
-                  target_lane = goal_change_lane;
-                  flag_lane_change = true;
-                  path_time = path_time_lane_change;
-                }
-              }
-             }           
+             // Try changing lane to a lane which have largest lane
+             int candidate_lane = 0;
+             std::vector<double>::iterator iter_max_speed_lane = std::max_element(ahead_car_speed.begin(), ahead_car_speed.end());
+             int idx_max_speed_lane = std::distance(ahead_car_speed.begin(), iter_max_speed_lane);
 
+             //
+             if(std::abs(target_lane - idx_max_speed_lane) == 0)
+             {
+               std::cout << "assert: maybe bug" << std::endl;
+             }else if(std::abs(target_lane - idx_max_speed_lane) == 1){
+                candidate_lane = idx_max_speed_lane;
+             }else{
+                candidate_lane = target_lane + (candidate_lane - target_lane) / 2;
+             }
+
+              if (lane_change_availability[candidate_lane])
+              {
+                target_lane = candidate_lane;
+                flag_lane_change = true;
+                path_time = path_time_lane_change;
+              }else{
+                // Can't change lane, NOTHING TO DO
+              }
+                            
               if(!flag_lane_change)
               {
                 // if there is forward attention under the cituation that lane change is not available, slow down.
                 ref_val -= 0.5 * max_jerk_abs * path_time * path_time;
+                ref_val = ref_val > ahead_car_speed[target_lane] ? ref_val : ahead_car_speed[target_lane];  
               }
-          }
-
+           }
           std::cout << "target_lane: " << target_lane << std::endl;
           
           //---------------------------
