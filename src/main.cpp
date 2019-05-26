@@ -28,17 +28,20 @@ const double max_acc_abs    = 8;//m//s^2 max is 10
 const double max_jerk_abs   = 5;//m/s^3max is 10
 
 const double safe_margin_slow_down   = 30;//m
-const double safe_margin_change_lane = 20;//m
+const double safe_margin_change_lane = 10;//m
 
 double ref_val = 0;//mile/h
+
+// for double lane change
+int   remaining_lane_change_cycle = 0;
 
 // the number of lanes
 const int num_lane = 3;
 
 const double cycle_s  = 0.02;
 double path_time      = 1;// unit is sec. When special condition like lane change this value wil be cahneged.
-const double path_time_lane_change = 2;
-const double path_time_normal = 1;
+const double path_time_lane_change = 2.5;
+const double path_time_normal = 1.5;
 
 double mile_per_h_to_meter_per_sec(double mph)
 {
@@ -165,10 +168,14 @@ int main() {
           double ref_yaw = deg2rad(car_yaw);//rad
 
           int prev_size = previous_path_x.size();
-          std::cout << "prev_size: " << prev_size << std::endl; 
 
           // avoid error of initialization
           end_path_s = (prev_size == 0) ? car_s : end_path_s;
+
+          // Check if previous lane change is completed
+          remaining_lane_change_cycle = (remaining_lane_change_cycle - prev_size) < 0 ? 0 : remaining_lane_change_cycle - prev_size;
+
+          std::cout << "prev_size: " << prev_size << " remain lane change:" << remaining_lane_change_cycle <<  std::endl; 
 
           //--------------------------
           // Check the other car
@@ -237,56 +244,59 @@ int main() {
           std::cout << std::endl;
 
 
+          //-----------------------
+          // Select lane
+          //-----------------------
           bool flag_lane_change = false;
-          // control speed and lane chanege
           if(forward_attention)
           {
              std::cout << "close ahead!!!" << std::endl;
               
-             // Try changing lane to a lane which have largest lane
+             // Try changing lane to one which have largest space
              int candidate_lane = 0;
              std::vector<double>::iterator iter_max_speed_lane = std::max_element(ahead_car_speed.begin(), ahead_car_speed.end());
              int idx_max_speed_lane = std::distance(ahead_car_speed.begin(), iter_max_speed_lane);
 
-             //
+             // max_speed speed lane is neighbiour?
              if(std::abs(target_lane - idx_max_speed_lane) == 0)
-             {
-               std::cout << "assert: maybe bug" << std::endl;
-             }else if(std::abs(target_lane - idx_max_speed_lane) == 1){
+             {// same lane
+               // NOTHING TO DO
+             }else if(std::abs(target_lane - idx_max_speed_lane) == 1){//neigh bour lane
                 candidate_lane = idx_max_speed_lane;
-             }else{
-                candidate_lane = target_lane + (candidate_lane - target_lane) / 2;
+             }else{// idx_max_speed_lane is too far to reach in this planning
+                candidate_lane = target_lane + (candidate_lane - target_lane) / 2;//TODO corresponding to different lane number. 
              }
 
-              if (lane_change_availability[candidate_lane])
+             // It can change lane when the lane have space and previous lane change is completed
+              if (lane_change_availability[candidate_lane] && remaining_lane_change_cycle <= 0)
               {
+                // lane change is selected
                 target_lane = candidate_lane;
                 flag_lane_change = true;
                 path_time = path_time_lane_change;
-              }else{
-                // Can't change lane, NOTHING TO DO
-              }
-                            
-              if(!flag_lane_change)
-              {
-                // if there is forward attention under the cituation that lane change is not available, slow down.
-                ref_val -= 0.5 * max_jerk_abs * path_time * path_time;
-                ref_val = ref_val > ahead_car_speed[target_lane] ? ref_val : ahead_car_speed[target_lane];  
-              }
+                remaining_lane_change_cycle = path_time * cycle_s - prev_size;
+              }//else NOTHING TO DO
            }
-          std::cout << "target_lane: " << target_lane << std::endl;
-          
-          //---------------------------
-          // Gain up speed
-          //---------------------------
-          if(!forward_attention && (ref_val < max_speed))
-          {
-              ref_val += 0.5 * max_jerk_abs * path_time * path_time;
-              if(ref_val > max_speed)
-              {
-                  ref_val = max_speed;
-              }
-          }
+
+           std::cout << "target_lane: " << target_lane << std::endl;
+
+          //----------------------------
+          // Control Speed
+          //----------------------------
+          // slow down
+          if(forward_attention && !flag_lane_change)
+            {//slow down if there is forward attention under the cituation that lane change is not available
+              ref_val -= 3 * path_time;
+              ref_val = ref_val > ahead_car_speed[target_lane] ? ref_val : ahead_car_speed[target_lane];  
+            }
+            else if(!forward_attention && (ref_val < max_speed))
+            {// Gain up speed
+                ref_val += 3 * path_time;
+                if(ref_val > max_speed)
+                {
+                    ref_val = max_speed;
+                }
+            }//else NO THING TO DO
 
           std::cout << "ref_val: " << ref_val << std::endl;
 
@@ -295,7 +305,7 @@ int main() {
           //---------------------
           if(prev_size <= 1)
           {
-            // if it is not enough previous path to make previous car vector, make virtual previous point;
+            // if there is not enough previous path to make previous car vector, make virtual previous point;
             double prev_car_x = car_x - cos(car_yaw)*1;
             double prev_car_y = car_y - sin(car_yaw)*1;
 
@@ -322,9 +332,6 @@ int main() {
           }
 
           // Add waypoints to pts_x and pts_y roughly,
-          //vector<double> next_wp_0 = getXY(car_s + mile_per_h_to_meter_per_sec(ref_val) * path_time *1/3, 2+(4 * target_lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          //vector<double> next_wp_1 = getXY(car_s + mile_per_h_to_meter_per_sec(ref_val) * path_time *2/3, 2+(4 * target_lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          //vector<double> next_wp_2 = getXY(car_s + mile_per_h_to_meter_per_sec(ref_val) * path_time *3/3, 2+(4 * target_lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
           double d_begin  = 2+(4 * target_lane_old);
           double d_target = 2+(4 * target_lane);
           vector<double> next_wp_0 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 1/3, d_begin + (d_target - d_begin) * 1/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
