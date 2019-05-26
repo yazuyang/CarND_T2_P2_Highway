@@ -239,10 +239,11 @@ int main() {
                 ref_val -= 0.5 * max_jerk_abs * path_time * path_time;
               }
           }
+
           std::cout << "target_lane: " << target_lane << std::endl;
           
           //---------------------------
-          // Fain up speed
+          // Gain up speed
           //---------------------------
           if(!forward_attention && (ref_val < max_speed))
           {
@@ -252,6 +253,7 @@ int main() {
                   ref_val = max_speed;
               }
           }
+
           std::cout << "ref_val: " << ref_val << std::endl;
 
           //---------------------
@@ -291,9 +293,9 @@ int main() {
           //vector<double> next_wp_2 = getXY(car_s + mile_per_h_to_meter_per_sec(ref_val) * path_time *3/3, 2+(4 * target_lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
           double d_begin  = 2+(4 * target_lane_old);
           double d_target = 2+(4 * target_lane);
-          vector<double> next_wp_0 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 1/3, d_begin + (d_target - d_begin) * 1/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp_1 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 2/3, d_begin + (d_target - d_begin) * 2/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp_2 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 3/3, d_begin + (d_target - d_begin) * 3/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp_0 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 1/3 * 2, d_begin + (d_target - d_begin) * 1/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp_1 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 2/3 * 2, d_begin + (d_target - d_begin) * 2/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp_2 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 3/3 * 2, d_begin + (d_target - d_begin) * 3/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
           pts_x.insert(pts_x.end(), {next_wp_0[0],next_wp_1[0],next_wp_2[0]});
           pts_y.insert(pts_y.end(), {next_wp_0[1],next_wp_1[1],next_wp_2[1]});
