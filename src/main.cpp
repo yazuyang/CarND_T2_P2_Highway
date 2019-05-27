@@ -27,7 +27,7 @@ const double max_speed      = 49.5;//mile/h max is 50
 const double max_acc_abs    = 5;//m//s^2 max is 10
 const double max_jerk_abs   = 5;//m/s^3max is 10
 
-const double safe_margin_slow_down   = 30;//m
+const double safe_margin_slow_down   = 20;//m
 const double safe_margin_change_lane = 10;//m
 
 double ref_vel = 0;//mile/h
@@ -271,7 +271,7 @@ int main() {
              }else if(std::abs(target_lane - idx_max_speed_lane) == 1){//neighbour lane
                 candidate_lane = idx_max_speed_lane;
              }else{// idx_max_speed_lane is too far to reach in this planning
-                candidate_lane = target_lane + (candidate_lane - target_lane) / 2;//TODO corresponding to different lane number. 
+                candidate_lane = target_lane + (idx_max_speed_lane - target_lane) / 2;//TODO corresponding to different lane number. 
              }
 
              // It can change lane when the lane have space and previous lane change is completed
@@ -324,12 +324,13 @@ int main() {
           double d_target = 2+(4 * target_lane);
           
           // To smooth trajectory in low speed
-          double interval_waypoint = mile_per_h_to_meter_per_sec(ref_vel * path_time) < 10 ? 10 : mile_per_h_to_meter_per_sec(ref_vel+max_acc_abs*path_time) * path_time * 1/3;
+          //double interval_waypoint = mile_per_h_to_meter_per_sec(ref_vel * path_time) < 10 ? 10 : mile_per_h_to_meter_per_sec(ref_vel+max_acc_abs*path_time) * path_time * 1/3;
+          double interval_waypoint = 30;
 
           // make way points
-          vector<double> next_wp_0 = getXY(end_path_s + interval_waypoint * 1, d_begin + (d_target - d_begin) * 1/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp_1 = getXY(end_path_s + interval_waypoint * 2, d_begin + (d_target - d_begin) * 2/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp_2 = getXY(end_path_s + interval_waypoint * 3, d_begin + (d_target - d_begin) * 3/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp_0 = getXY(end_path_s + interval_waypoint * 1, d_target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp_1 = getXY(end_path_s + interval_waypoint * 2, d_target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp_2 = getXY(end_path_s + interval_waypoint * 3, d_target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
           pts_x.insert(pts_x.end(), {next_wp_0[0],next_wp_1[0],next_wp_2[0]});
           pts_y.insert(pts_y.end(), {next_wp_0[1],next_wp_1[1],next_wp_2[1]});
