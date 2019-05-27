@@ -30,7 +30,7 @@ const double max_jerk_abs   = 5;//m/s^3max is 10
 const double safe_margin_slow_down   = 30;//m
 const double safe_margin_change_lane = 10;//m
 
-double ref_val = 0;//mile/h
+double ref_vel = 0;//mile/h
 
 // for double lane change
 int   remaining_lane_change_cycle = 0;
@@ -171,6 +171,7 @@ int main() {
 
           // avoid error of initialization
           end_path_s = (prev_size == 0) ? car_s : end_path_s;
+          end_path_d = (prev_size == 0) ? car_d : end_path_d;
 
           // Check if previous lane change is completed
           remaining_lane_change_cycle = (remaining_lane_change_cycle - prev_size) < 0 ? 0 : remaining_lane_change_cycle - prev_size;
@@ -286,19 +287,19 @@ int main() {
           // slow down
           if(forward_attention && !flag_lane_change)
             {//slow down if there is forward attention under the cituation that lane change is not available
-              ref_val -= 3 * path_time;
-              ref_val = ref_val > ahead_car_speed[target_lane] ? ref_val : ahead_car_speed[target_lane];  
+              ref_vel -= 3 * path_time;
+              ref_vel = ref_vel > ahead_car_speed[target_lane] ? ref_vel : ahead_car_speed[target_lane];  
             }
-            else if(!forward_attention && (ref_val < max_speed))
+            else if(!forward_attention && (ref_vel < max_speed))
             {// Gain up speed
-                ref_val += 3 * path_time;
-                if(ref_val > max_speed)
+                ref_vel += 3 * path_time;
+                if(ref_vel > max_speed)
                 {
-                    ref_val = max_speed;
+                    ref_vel = max_speed;
                 }
             }//else NO THING TO DO
 
-          std::cout << "ref_val: " << ref_val << std::endl;
+          std::cout << "ref_vel: " << ref_vel << std::endl;
 
           //---------------------
           // make data to be used for spline
@@ -332,11 +333,12 @@ int main() {
           }
 
           // Add waypoints to pts_x and pts_y roughly,
-          double d_begin  = 2+(4 * target_lane_old);
+          double d_begin  = end_path_d;
           double d_target = 2+(4 * target_lane);
-          vector<double> next_wp_0 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 1/3, d_begin + (d_target - d_begin) * 1/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp_1 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 2/3, d_begin + (d_target - d_begin) * 2/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp_2 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_val) * path_time * 3/3, d_begin + (d_target - d_begin) * 3/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          
+          vector<double> next_wp_0 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_vel) * path_time * 1/3, d_begin + (d_target - d_begin) * 1/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp_1 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_vel) * path_time * 2/3, d_begin + (d_target - d_begin) * 2/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp_2 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_vel) * path_time * 3/3, d_begin + (d_target - d_begin) * 3/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
           pts_x.insert(pts_x.end(), {next_wp_0[0],next_wp_1[0],next_wp_2[0]});
           pts_y.insert(pts_y.end(), {next_wp_0[1],next_wp_1[1],next_wp_2[1]});
@@ -365,7 +367,7 @@ int main() {
           next_x.insert(next_x.end(), previous_path_x.begin(), previous_path_x.end());
           next_y.insert(next_y.end(), previous_path_y.begin(), previous_path_y.end());
 
-          double target_x = mile_per_h_to_meter_per_sec(ref_val)*path_time;//???
+          double target_x = mile_per_h_to_meter_per_sec(ref_vel)*path_time;//???
           double target_y = s(target_x);
           double target_dist = distance(0, 0, target_x, target_y);
 
@@ -374,7 +376,7 @@ int main() {
           for (int i=0; i <= path_time / cycle_s - prev_size; i++)
           {
             // Calc the number of cycles to reach the target_x with reference_speed.
-            double N = target_dist/(0.02*mile_per_h_to_meter_per_sec(ref_val)); 
+            double N = target_dist/(0.02*mile_per_h_to_meter_per_sec(ref_vel)); 
             double x_point = x_add_on + target_x / N;//x at next cycle
             double y_point = s(x_point);//y at next_cycle
 
