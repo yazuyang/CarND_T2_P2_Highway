@@ -24,7 +24,7 @@ const double max_s = 6945.554;
 int target_lane = 1;
 //target status including margin
 const double max_speed      = 49.5;//mile/h max is 50
-const double max_acc_abs    = 8;//m//s^2 max is 10
+const double max_acc_abs    = 5;//m//s^2 max is 10
 const double max_jerk_abs   = 5;//m/s^3max is 10
 
 const double safe_margin_slow_down   = 30;//m
@@ -173,6 +173,9 @@ int main() {
           end_path_s = (prev_size == 0) ? car_s : end_path_s;
           end_path_d = (prev_size == 0) ? car_d : end_path_d;
 
+          // avoid error caused by ref_val is 0
+          ref_vel = ref_vel < 0.0001 ? meter_per_sec_to_mile_per_h(max_acc_abs * cycle_s) : ref_vel;
+
           // Check if previous lane change is completed
           remaining_lane_change_cycle = (remaining_lane_change_cycle - prev_size) < 0 ? 0 : remaining_lane_change_cycle - prev_size;
 
@@ -249,9 +252,12 @@ int main() {
           // Select lane
           //-----------------------
           bool flag_lane_change = false;
+          double max_vel_avoid_collision = max_speed;
           if(forward_attention)
           {
              std::cout << "close ahead!!!" << std::endl;
+
+             max_vel_avoid_collision = ahead_car_speed[target_lane];
               
              // Try changing lane to one which have largest space
              int candidate_lane = 0;
@@ -262,7 +268,7 @@ int main() {
              if(std::abs(target_lane - idx_max_speed_lane) == 0)
              {// same lane
                // NOTHING TO DO
-             }else if(std::abs(target_lane - idx_max_speed_lane) == 1){//neigh bour lane
+             }else if(std::abs(target_lane - idx_max_speed_lane) == 1){//neighbour lane
                 candidate_lane = idx_max_speed_lane;
              }else{// idx_max_speed_lane is too far to reach in this planning
                 candidate_lane = target_lane + (candidate_lane - target_lane) / 2;//TODO corresponding to different lane number. 
@@ -276,30 +282,11 @@ int main() {
                 flag_lane_change = true;
                 path_time = path_time_lane_change;
                 remaining_lane_change_cycle = path_time * cycle_s - prev_size;
+                max_vel_avoid_collision  = std::min(max_vel_avoid_collision, ahead_car_speed[target_lane]);
               }//else NOTHING TO DO
            }
 
            std::cout << "target_lane: " << target_lane << std::endl;
-
-          //----------------------------
-          // Control Speed
-          //----------------------------
-          // slow down
-          if(forward_attention && !flag_lane_change)
-            {//slow down if there is forward attention under the cituation that lane change is not available
-              ref_vel -= 3 * path_time;
-              ref_vel = ref_vel > ahead_car_speed[target_lane] ? ref_vel : ahead_car_speed[target_lane];  
-            }
-            else if(!forward_attention && (ref_vel < max_speed))
-            {// Gain up speed
-                ref_vel += 3 * path_time;
-                if(ref_vel > max_speed)
-                {
-                    ref_vel = max_speed;
-                }
-            }//else NO THING TO DO
-
-          std::cout << "ref_vel: " << ref_vel << std::endl;
 
           //---------------------
           // make data to be used for spline
@@ -336,9 +323,13 @@ int main() {
           double d_begin  = end_path_d;
           double d_target = 2+(4 * target_lane);
           
-          vector<double> next_wp_0 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_vel) * path_time * 1/3, d_begin + (d_target - d_begin) * 1/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp_1 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_vel) * path_time * 2/3, d_begin + (d_target - d_begin) * 2/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp_2 = getXY(end_path_s + mile_per_h_to_meter_per_sec(ref_vel) * path_time * 3/3, d_begin + (d_target - d_begin) * 3/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          // To smooth trajectory in low speed
+          double interval_waypoint = mile_per_h_to_meter_per_sec(ref_vel * path_time) < 10 ? 10 : mile_per_h_to_meter_per_sec(ref_vel+max_acc_abs*path_time) * path_time * 1/3;
+
+          // make way points
+          vector<double> next_wp_0 = getXY(end_path_s + interval_waypoint * 1, d_begin + (d_target - d_begin) * 1/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp_1 = getXY(end_path_s + interval_waypoint * 2, d_begin + (d_target - d_begin) * 2/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp_2 = getXY(end_path_s + interval_waypoint * 3, d_begin + (d_target - d_begin) * 3/3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
           pts_x.insert(pts_x.end(), {next_wp_0[0],next_wp_1[0],next_wp_2[0]});
           pts_y.insert(pts_y.end(), {next_wp_0[1],next_wp_1[1],next_wp_2[1]});
@@ -367,7 +358,7 @@ int main() {
           next_x.insert(next_x.end(), previous_path_x.begin(), previous_path_x.end());
           next_y.insert(next_y.end(), previous_path_y.begin(), previous_path_y.end());
 
-          double target_x = mile_per_h_to_meter_per_sec(ref_vel)*path_time;//???
+          double target_x = (mile_per_h_to_meter_per_sec(ref_vel) + max_acc_abs * path_time)*path_time;//???
           double target_y = s(target_x);
           double target_dist = distance(0, 0, target_x, target_y);
 
@@ -375,6 +366,16 @@ int main() {
 
           for (int i=0; i <= path_time / cycle_s - prev_size; i++)
           {
+
+            if(ref_vel > std::min(max_speed, max_vel_avoid_collision))
+            {
+              ref_vel -= meter_per_sec_to_mile_per_h(max_acc_abs*cycle_s);
+            }else
+            {
+              ref_vel += meter_per_sec_to_mile_per_h(max_acc_abs*cycle_s);
+            }
+          
+
             // Calc the number of cycles to reach the target_x with reference_speed.
             double N = target_dist/(0.02*mile_per_h_to_meter_per_sec(ref_vel)); 
             double x_point = x_add_on + target_x / N;//x at next cycle
