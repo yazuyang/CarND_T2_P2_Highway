@@ -27,21 +27,17 @@ const double max_speed      = 49.5;//mile/h max is 50
 const double max_acc_abs    = 5;//m//s^2 max is 10
 const double max_jerk_abs   = 5;//m/s^3max is 10
 
+const double max_dist_ahead_car      = 100;//m
 const double safe_margin_slow_down   = 20;//m
 const double safe_margin_change_lane = 10;//m
 
 double ref_vel = 0;//mile/h
 
-// for double lane change
-int   remaining_lane_change_cycle = 0;
-
 // the number of lanes
 const int num_lane = 3;
 
 const double cycle_s  = 0.02;
-double path_time      = 1;// unit is sec. When special condition like lane change this value wil be cahneged.
-const double path_time_lane_change = 2.5;
-const double path_time_normal = 1.5;
+const double path_time      = 1.5;// unit is sec. When special condition like lane change this value wil be cahneged.
 
 double mile_per_h_to_meter_per_sec(double mph)
 {
@@ -149,10 +145,6 @@ int main() {
           //   of the road.
           auto sensor_fusion = j[1]["sensor_fusion"];
 
-          int target_lane_old = target_lane;
-
-          path_time = path_time_normal;
-
           /**
            * TODO: define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
@@ -175,11 +167,6 @@ int main() {
 
           // avoid error caused by ref_val is 0
           ref_vel = ref_vel < 0.0001 ? meter_per_sec_to_mile_per_h(max_acc_abs * cycle_s) : ref_vel;
-
-          // Check if previous lane change is completed
-          remaining_lane_change_cycle = (remaining_lane_change_cycle - prev_size) < 0 ? 0 : remaining_lane_change_cycle - prev_size;
-
-          std::cout << "prev_size: " << prev_size << " remain lane change:" << remaining_lane_change_cycle <<  std::endl; 
 
           //--------------------------
           // Check the other car
@@ -215,7 +202,7 @@ int main() {
             }
 
             // Get ahead car information 
-            if(((end_path_s) < s_sensored_car_predict) && ((s_sensored_car_predict < (end_path_s + safe_margin_slow_down))))// TODO s range
+            if(((end_path_s) < s_sensored_car_predict) && ((s_sensored_car_predict < (end_path_s + max_dist_ahead_car))))// TODO s range
             {
               double dist = distance(car_x, car_y, x, y);
               if(dist < ahead_car_dist[idx_lane_sensored_car])
@@ -264,6 +251,7 @@ int main() {
              std::vector<double>::iterator iter_max_speed_lane = std::max_element(ahead_car_speed.begin(), ahead_car_speed.end());
              int idx_max_speed_lane = std::distance(ahead_car_speed.begin(), iter_max_speed_lane);
 
+
              // max_speed speed lane is neighbiour?
              if(std::abs(target_lane - idx_max_speed_lane) == 0)
              {// same lane
@@ -275,13 +263,11 @@ int main() {
              }
 
              // It can change lane when the lane have space and previous lane change is completed
-              if (lane_change_availability[candidate_lane] && remaining_lane_change_cycle <= 0)
+              if (lane_change_availability[candidate_lane])
               {
                 // lane change is selected
                 target_lane = candidate_lane;
                 flag_lane_change = true;
-                path_time = path_time_lane_change;
-                remaining_lane_change_cycle = path_time * cycle_s - prev_size;
                 max_vel_avoid_collision  = std::min(max_vel_avoid_collision, ahead_car_speed[target_lane]);
               }//else NOTHING TO DO
            }
