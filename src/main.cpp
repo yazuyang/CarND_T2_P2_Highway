@@ -115,7 +115,9 @@ int main()
           // avoid error caused by ref_val is 0
           ref_vel = ref_vel < 0.0001 ? meter_per_sec_to_mile_per_h(max_acc_abs * cycle_s) : ref_vel;
 
+          //--------------------------
           // sensor
+          //--------------------------
           bool forward_attention = false;
           vector<bool> lane_change_availability(num_lane, true);
           vector<double> ahead_car_speed(num_lane, std::numeric_limits<double>::max());
@@ -159,49 +161,13 @@ int main()
           //---------------------
           // make path with spline
           //---------------------
-          tk::spline s;
-
-          print_pts(pts_x, pts_y);
-          s.set_points(pts_x, pts_y);
-
           vector<double> next_x;
           vector<double> next_y;
-
-          next_x.insert(next_x.end(), previous_path_x.begin(), previous_path_x.end());
-          next_y.insert(next_y.end(), previous_path_y.begin(), previous_path_y.end());
-
-          double target_x = (mile_per_h_to_meter_per_sec(ref_vel) + max_acc_abs * path_time) * path_time; //???
-          double target_y = s(target_x);
-          double target_dist = distance(0, 0, target_x, target_y);
-
-          double x_add_on = 0;
-
-          for (int i = 0; i <= path_time / cycle_s - prev_size; i++)
-          {
-
-            if (ref_vel > std::min(max_speed, max_vel_avoid_collision))
-            {
-              ref_vel -= meter_per_sec_to_mile_per_h(max_acc_abs * cycle_s);
-            }
-            else
-            {
-              ref_vel += meter_per_sec_to_mile_per_h(max_acc_abs * cycle_s);
-            }
-
-            // Calc the number of cycles to reach the target_x with reference_speed.
-            double N = target_dist / (0.02 * mile_per_h_to_meter_per_sec(ref_vel));
-            double x_point = x_add_on + target_x / N; //x at next cycle
-            double y_point = s(x_point);              //y at next_cycle
-
-            x_add_on = x_point; //store for next cycle
-
-            // translate vehicle cordinate into global cordinate
-            double x_global_cord = x_point * cos(ref_yaw) - y_point * sin(ref_yaw) + ref_x;
-            double y_global_cord = x_point * sin(ref_yaw) + y_point * cos(ref_yaw) + ref_y;
-
-            next_x.push_back(x_global_cord);
-            next_y.push_back(y_global_cord);
-          }
+          make_path(pts_x, pts_y,
+                    previous_path_x, previous_path_y,
+                    prev_size, max_vel_avoid_collision,
+                    ref_x, ref_y, ref_yaw,
+                    next_x, next_y, ref_vel);
 
           json msgJson;
           msgJson["next_x"] = next_x;
