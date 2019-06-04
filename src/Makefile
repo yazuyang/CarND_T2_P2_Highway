@@ -123,6 +123,33 @@ path_planning/fast:
 	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/build
 .PHONY : path_planning/fast
 
+helpers.o: helpers.cpp.o
+
+.PHONY : helpers.o
+
+# target to build an object file
+helpers.cpp.o:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/helpers.cpp.o
+.PHONY : helpers.cpp.o
+
+helpers.i: helpers.cpp.i
+
+.PHONY : helpers.i
+
+# target to preprocess a source file
+helpers.cpp.i:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/helpers.cpp.i
+.PHONY : helpers.cpp.i
+
+helpers.s: helpers.cpp.s
+
+.PHONY : helpers.s
+
+# target to generate assembly for a file
+helpers.cpp.s:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/helpers.cpp.s
+.PHONY : helpers.cpp.s
+
 main.o: main.cpp.o
 
 .PHONY : main.o
@@ -150,6 +177,33 @@ main.cpp.s:
 	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/main.cpp.s
 .PHONY : main.cpp.s
 
+path_plan.o: path_plan.cpp.o
+
+.PHONY : path_plan.o
+
+# target to build an object file
+path_plan.cpp.o:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/path_plan.cpp.o
+.PHONY : path_plan.cpp.o
+
+path_plan.i: path_plan.cpp.i
+
+.PHONY : path_plan.i
+
+# target to preprocess a source file
+path_plan.cpp.i:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/path_plan.cpp.i
+.PHONY : path_plan.cpp.i
+
+path_plan.s: path_plan.cpp.s
+
+.PHONY : path_plan.s
+
+# target to generate assembly for a file
+path_plan.cpp.s:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/path_plan.cpp.s
+.PHONY : path_plan.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -159,9 +213,15 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... path_planning"
 	@echo "... edit_cache"
+	@echo "... helpers.o"
+	@echo "... helpers.i"
+	@echo "... helpers.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
+	@echo "... path_plan.o"
+	@echo "... path_plan.i"
+	@echo "... path_plan.s"
 .PHONY : help
 
 

@@ -74,12 +74,13 @@ int main()
           // j[1] is the data JSON object
 
           // Main car's localization Data
-          double car_x = j[1]["x"];
-          double car_y = j[1]["y"];
-          double car_s = j[1]["s"];
-          double car_d = j[1]["d"];
-          double car_yaw = j[1]["yaw"];
-          double car_speed = j[1]["speed"];
+          car_t car;
+          car.x = j[1]["x"];
+          car.y = j[1]["y"];
+          car.s = j[1]["s"];
+          car.d = j[1]["d"];
+          car.yaw = j[1]["yaw"];
+          car.speed = j[1]["speed"];
 
           // Previous path data given to the Planner
           auto previous_path_x = j[1]["previous_path_x"];
@@ -102,15 +103,15 @@ int main()
           vector<double> pts_x;
           vector<double> pts_y;
 
-          double ref_x = car_x;
-          double ref_y = car_y;
-          double ref_yaw = deg2rad(car_yaw); //rad
+          double ref_x = car.x;
+          double ref_y = car.y;
+          double ref_yaw = deg2rad(car.yaw); //rad
 
           int prev_size = previous_path_x.size();
 
           // avoid error of initialization
-          end_path_s = (prev_size == 0) ? car_s : end_path_s;
-          end_path_d = (prev_size == 0) ? car_d : end_path_d;
+          end_path_s = (prev_size == 0) ? car.s : end_path_s;
+          end_path_d = (prev_size == 0) ? car.d : end_path_d;
 
           // avoid error caused by ref_val is 0
           ref_vel = ref_vel < 0.0001 ? meter_per_sec_to_mile_per_h(max_acc_abs * cycle_s) : ref_vel;
@@ -121,9 +122,9 @@ int main()
           bool forward_attention = false;
           vector<bool> lane_change_availability(num_lane, true);
           vector<double> ahead_car_speed(num_lane, std::numeric_limits<double>::max());
-          vector<double> ahead_car_dist(num_lane, std::numeric_limits<double>::max());
           sense(sensor_fusion, prev_size, end_path_s,
-                forward_attention, car_x, car_y, target_lane, lane_change_availability, ahead_car_speed, ahead_car_dist);
+                car, target_lane,
+                forward_attention, lane_change_availability, ahead_car_speed);
 
           // print
           std::cout << "ahead_car_speed: ";
@@ -152,8 +153,7 @@ int main()
           //---------------------
           // make data to be used for spline
           //---------------------
-          get_data_for_spline(prev_size, car_x, car_y,
-                              car_yaw, previous_path_x, previous_path_y,
+          get_data_for_spline(prev_size, car, previous_path_x, previous_path_y,
                               map_waypoints_x, map_waypoints_y, map_waypoints_s,
                               target_lane, end_path_s, end_path_d,
                               ref_x, ref_y, ref_yaw, pts_x, pts_y);

@@ -4,9 +4,11 @@
 // Check the other car
 //--------------------------
 void sense(const nlohmann::json &sensor_fusion, const int &prev_size, double &end_path_s,
-           bool &forward_attention, const int &car_x, const int &car_y, const int &target_lane,
-           std::vector<bool> &lane_change_availability, std::vector<double> &ahead_car_speed, std::vector<double> ahead_car_dist)
+           const car_t &car, const int &target_lane,
+           bool &forward_attention, std::vector<bool> &lane_change_availability, std::vector<double> &ahead_car_speed)
 {
+    std::vector<double> ahead_car_dist(num_lane, std::numeric_limits<double>::max());
+
     for (auto another_car : sensor_fusion)
     {
         int id = another_car[0];
@@ -36,7 +38,7 @@ void sense(const nlohmann::json &sensor_fusion, const int &prev_size, double &en
         // Get ahead car information
         if (((end_path_s) < s_sensored_car_predict) && ((s_sensored_car_predict < (end_path_s + max_dist_ahead_car)))) // TODO s range
         {
-            double dist = distance(car_x, car_y, x, y);
+            double dist = distance(car.x, car.y, x, y);
             if (dist < ahead_car_dist[idx_lane_sensored_car])
             {
                 ahead_car_dist[idx_lane_sensored_car] = dist;
@@ -96,8 +98,7 @@ void select_lane(const int &forward_attention, std::vector<double> ahead_car_spe
     }
 }
 
-void get_data_for_spline(const int &prev_size, const double &car_x, const double &car_y,
-                         const double &car_yaw, const std::vector<double> &previous_path_x, const std::vector<double> &previous_path_y,
+void get_data_for_spline(const int &prev_size, const car_t &car, const std::vector<double> &previous_path_x, const std::vector<double> &previous_path_y,
                          const std::vector<double> &map_waypoints_x, const std::vector<double> &map_waypoints_y, const std::vector<double> &map_waypoints_s,
                          const int &target_lane, const double &end_path_s, const double &end_path_d,
                          double &ref_x, double &ref_y, double &ref_yaw, std::vector<double> &pts_x, std::vector<double> &pts_y)
@@ -105,11 +106,11 @@ void get_data_for_spline(const int &prev_size, const double &car_x, const double
     if (prev_size <= 1)
     {
         // if there is not enough previous path to make previous car vector, make virtual previous point;
-        double prev_car_x = car_x - cos(car_yaw) * 1;
-        double prev_car_y = car_y - sin(car_yaw) * 1;
+        double prev_car_x = car.x - cos(car.yaw) * 1;
+        double prev_car_y = car.y - sin(car.yaw) * 1;
 
-        pts_x.insert(pts_x.end(), {prev_car_x, car_x});
-        pts_y.insert(pts_y.end(), {prev_car_y, car_y});
+        pts_x.insert(pts_x.end(), {prev_car_x, car.x});
+        pts_y.insert(pts_y.end(), {prev_car_y, car.y});
     }
     else
     {
@@ -122,7 +123,7 @@ void get_data_for_spline(const int &prev_size, const double &car_x, const double
 
         if (distance(ref_x, ref_y, prev_ref_x, prev_ref_y) < 0.001)
         {
-            ref_yaw = car_yaw;
+            ref_yaw = car.yaw;
         }
         else
         {
